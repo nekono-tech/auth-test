@@ -63,6 +63,8 @@ def token_verify(body: TokenRequest):
         )
     except jwt.ExpiredSignatureError:
         print("access_token expired.")
+    except jwt.InvalidTokenError:
+        print("access_token invalid.")
 
     try:
         refresh_decoded = jwt.decode(
@@ -72,6 +74,8 @@ def token_verify(body: TokenRequest):
         )
     except jwt.ExpiredSignatureError:
         print("refresh_token expired.")
+    except jwt.InvalidTokenError:
+        print("refresh_token invalid.")
 
     return {
         "access_decoded": access_decoded, 
