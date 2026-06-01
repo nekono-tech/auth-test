@@ -1,6 +1,7 @@
 import jwt
 from datetime import datetime, timezone, timedelta
 from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
 from database import get_session
 from models import User
 from sqlalchemy.orm import Session
@@ -18,7 +19,60 @@ class Settings(BaseSettings):
 settings = Settings()
 app = FastAPI()
 
+# Authorization ヘッダーから Bearer トークンを取り出す
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+
 password_hash = PasswordHash.recommended()
+
+def get_current_user(
+        access_token: str = Depends(oauth2_scheme),
+        session: Session = Depends(get_session)
+    ):
+    """access_token を検証し、ユーザー情報を返却する。"""
+
+    try:
+        # access_token をデコード
+        decoded = jwt.decode(
+            access_token,
+            key=settings.secret,
+            algorithms=[settings.algorithm]
+        )
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            detail="アクセストークンの有効期限が切れました"
+        )
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            detail="アクセストークンの形式が正しくありません"
+        )
+    
+    # access_token 以外の場合はエラーとする
+    if decoded.get("type") != "access":
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            detail="アクセストークンの種別が正しくありません"
+        )
+
+    # sub の検証
+    sub = decoded.get("sub")
+    if sub is None:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            detail="認証に失敗しました"
+        )
+
+    # ユーザーを検索し、認証成功した場合はそのユーザーを返却する
+    user_id: int = int(sub)
+    user: User = session.get(User, user_id)
+    if not user:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            detail="認証に失敗しました"
+        )
+    
+    return user
 
 class CreateUserRequest(BaseModel):
     name: str
@@ -32,7 +86,10 @@ class LoginUserRequest(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-class TokenRequest(BaseModel):
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
 
@@ -46,41 +103,69 @@ class UserResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-@app.get("/")
-def hello():
-    return {"message": "ok"}
+@app.get("/api/me", response_model=UserResponse)
+def hello(current_user: User = Depends(get_current_user)) -> UserResponse:
+    return current_user
 
-@app.post("/token-verify")
-def token_verify(body: TokenRequest):
-    access_decoded = None
-    refresh_decoded = None
+@app.post("/api/token/refresh", response_model=TokenResponse)
+def token_refresh(body: RefreshRequest, session: Session = Depends(get_session)):
+    # リフレッシュトークンを検証
+    decoded = refresh_token_verify(body.refresh_token)
 
-    try:
-        access_decoded = jwt.decode(
-            body.access_token,
-            settings.secret,
-            algorithms=[settings.algorithm]
+    # sub の検証
+    sub = decoded.get("sub")
+    if sub is None:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            detail="認証に失敗しました"
         )
-    except jwt.ExpiredSignatureError:
-        print("access_token expired.")
-    except jwt.InvalidTokenError:
-        print("access_token invalid.")
-
-    try:
-        refresh_decoded = jwt.decode(
-            body.refresh_token,
-            settings.secret,
-            algorithms=[settings.algorithm]
+    
+    user: User = session.get(User, int(sub))
+    if not user:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            detail="認証に失敗しました"
         )
-    except jwt.ExpiredSignatureError:
-        print("refresh_token expired.")
-    except jwt.InvalidTokenError:
-        print("refresh_token invalid.")
+
+    # トークンを再発行
+    new_access_token = _create_token(user.id, "access", timedelta(minutes=5))
+    new_refresh_token = _create_token(user.id, "refresh", timedelta(minutes=10))
 
     return {
-        "access_decoded": access_decoded, 
-        "refresh_decoded": refresh_decoded
+        "access_token": new_access_token, 
+        "refresh_token": new_refresh_token
     }
+
+def refresh_token_verify(refresh_token: str):
+    """リフレッシュトークンを検証し、デコード結果を返却する。
+    """
+    try:
+        # refresh_token をデコード
+        decoded = jwt.decode(
+            refresh_token,
+            key=settings.secret,
+            algorithms=[settings.algorithm]
+        )
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            detail="リフレッシュトークンの有効期限が切れました"
+        )
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            detail="リフレッシュトークンの形式が正しくありません"
+        )
+    
+    # refresh_token 以外の場合はエラーとする
+    if decoded.get("type") != "refresh":
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            detail="リフレッシュトークンの種別が正しくありません"
+        )
+    
+    return decoded
+
 
 @app.post("/users", response_model=UserResponse)
 def create_user(body: CreateUserRequest, session: Session = Depends(get_session)) -> UserResponse:
@@ -128,8 +213,8 @@ def login(body: LoginUserRequest, session: Session = Depends(get_session)):
         )
 
     # トークン生成
-    access_token = _create_token(user.id, "access", timedelta(seconds=5))
-    refresh_token = _create_token(user.id, "refresh", timedelta(seconds=10))
+    access_token = _create_token(user.id, "access", timedelta(minutes=5))
+    refresh_token = _create_token(user.id, "refresh", timedelta(minutes=10))
 
     return {
         "access_token": access_token, 
