@@ -1,5 +1,7 @@
+import jwt
+
 from datetime import datetime
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException, status
 from database import get_session
 from models import User
 from sqlalchemy.orm import Session
@@ -12,6 +14,12 @@ app = FastAPI()
 password_hash = PasswordHash.recommended()
 
 class CreateUserRequest(BaseModel):
+    name: str
+    password: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+class LoginUserRequest(BaseModel):
     name: str
     password: str
 
@@ -52,3 +60,25 @@ def list_users(session: Session = Depends(get_session)) -> list[UserResponse]:
     result = session.scalars(statement).all()
     return result
 
+@app.post("/login")
+def login(body: LoginUserRequest, session: Session = Depends(get_session)):
+    # まずはログイン情報を検証
+    statement = select(User).where(User.name == body.name)
+    user = session.scalars(statement).one_or_none()
+
+    # ユーザーが存在しない場合は 404 エラー
+    # 本番ではこのエラーを出すとユーザーの存在が確認できてしまうので、401 にまとめるのがよさそう
+    if not user:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail="ユーザーが存在しません"
+        )
+
+    # ユーザーが存在する場合、パスワードのチェック
+    is_verify = password_hash.verify(body.password, user.password)
+    if not is_verify:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            detail="ログイン情報が正しくありません"
+        )
+    return {"login": "ok"}
