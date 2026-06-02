@@ -8,15 +8,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 from pydantic import BaseModel,ConfigDict
 from pwdlib import PasswordHash
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from app.core.config import settings
 
-class Settings(BaseSettings):
-    secret: str | None = None
-    algorithm: str | None = None
-
-    model_config = SettingsConfigDict(env_file=".env")
-
-settings = Settings()
 app = FastAPI()
 
 # Authorization ヘッダーから Bearer トークンを取り出す
