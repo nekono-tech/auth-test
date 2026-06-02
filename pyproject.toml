@@ -13,5 +13,54 @@ dependencies = [
     "sqlalchemy>=2.0.50",
 ]
 
+[dependency-groups]
+dev = [
+    "ruff>=0.15.15",
+]
+
 [tool.fastapi]
 entrypoint = "app.main:app"
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle エラー：インデントや空白などの文法スタイル違反
+    "W",   # pycodestyle 警告：末尾空白など軽微なスタイル違反
+    "F",   # pyflakes：未使用 import / 未定義名など論理的なミス
+    "I",   # isort：import の並び順を自動整列
+    "B",   # flake8-bugbear：バグを生みやすい書き方（可変デフォルト引数など）を検出
+    "C4",  # flake8-comprehensions：内包表記で書ける冗長な list()/dict() を指摘
+    "UP",  # pyupgrade：新しい Python 構文への書き換えを提案（X | Y 型注釈など）
+    "SIM", # flake8-simplify：冗長な if/return・ネストした with などを簡潔化
+    "RUF", # Ruff 固有ルール：未使用 noqa の検出など Ruff 独自の有用な検査
+    "PIE", # flake8-pie：不要な pass・重複キーなど細かい無駄を除去
+]
+ignore = [
+    # B904: except 内で HTTPException を投げ直す際に `from` を必須にしない
+    #       （内部例外を隠して翻訳するのが基本方針のため）
+    "B904",
+]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI は引数デフォルトに Depends()/Query() 等の関数呼び出しを置くため、
+# B008（function-call-in-default-argument）の対象から除外する。
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Query",
+    "fastapi.Path",
+    "fastapi.Body",
+    "fastapi.Header",
+    "fastapi.Cookie",
+    "fastapi.Form",
+    "fastapi.File",
+    "fastapi.Security",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Alembic の自動生成・テンプレート由来ファイルは生成物なので、テンプレート起因の
+# 指摘（Union 記法・import 並び・行長・末尾空白など）を除外する。
+"alembic/versions/*" = ["E501", "I001", "UP007", "UP035", "W291"]
+"alembic/env.py" = ["E501", "I001"]

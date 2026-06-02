@@ -1,5 +1,6 @@
-from pydantic import BaseModel, ConfigDict
 from datetime import datetime
+
+from pydantic import BaseModel, ConfigDict
 
 
 class CreateUserRequest(BaseModel):
@@ -7,6 +8,7 @@ class CreateUserRequest(BaseModel):
     password: str
 
     model_config = ConfigDict(from_attributes=True)
+
 
 class UserResponse(BaseModel):
     id: int
