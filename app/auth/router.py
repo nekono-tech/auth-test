@@ -55,9 +55,7 @@ def login(body: LoginUserRequest, session: Session = Depends(get_session)):
     # ユーザーが存在する場合、パスワードのチェック
     is_verify = password_hash.verify(body.password, user.password)
     if not is_verify:
-        raise HTTPException(
-            status.HTTP_401_UNAUTHORIZED, detail="ログイン情報が正しくありません"
-        )
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="ログイン情報が正しくありません")
 
     # トークン生成
     access_token = _create_token(user.id, "access", timedelta(minutes=5))

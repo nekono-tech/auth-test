@@ -3,5 +3,16 @@
     "**/.venv": true,
     "**/__pycache__": true,
     "**/.ruff_cache": true
+  },
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    // 保存時にフォーマット
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      // 自動修正可能な lint エラーを保存時に修正
+      "source.fixAll.ruff": "explicit",
+      // import の並べ替え
+      "source.organizeImports.ruff": "explicit"
+    }
   }
 }
