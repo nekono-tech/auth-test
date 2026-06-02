@@ -15,12 +15,12 @@ from app.users.schemas import UserResponse
 router = APIRouter()
 
 
-@router.get("/api/me", response_model=UserResponse)
-def hello(current_user: User = Depends(get_current_user)) -> UserResponse:
+@router.get("/me", response_model=UserResponse)
+def me(current_user: User = Depends(get_current_user)) -> UserResponse:
     return current_user
 
 
-@router.post("/api/token/refresh", response_model=TokenResponse)
+@router.post("/token/refresh", response_model=TokenResponse)
 def token_refresh(body: RefreshRequest, session: Session = Depends(get_session)):
     # リフレッシュトークンを検証
     decoded = refresh_token_verify(body.refresh_token)
