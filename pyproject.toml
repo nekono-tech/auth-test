@@ -12,3 +12,6 @@ dependencies = [
     "pyjwt[crypto]>=2.13.0",
     "sqlalchemy>=2.0.50",
 ]
+
+[tool.fastapi]
+entrypoint = "app.main:app"

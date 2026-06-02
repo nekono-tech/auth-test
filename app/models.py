@@ -1,4 +1,4 @@
-from database import Base, TimestampMixin
+from app.database import Base, TimestampMixin
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import String
 

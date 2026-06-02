@@ -2,8 +2,8 @@ import jwt
 from datetime import datetime, timezone, timedelta
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from database import get_session
-from models import User
+from app.database import get_session
+from app.models import User
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from pydantic import BaseModel,ConfigDict
