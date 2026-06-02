@@ -6,9 +6,9 @@ from app.database import get_session
 from app.models import User
 from sqlalchemy.orm import Session
 from sqlalchemy import select
-from pydantic import BaseModel,ConfigDict
 from pwdlib import PasswordHash
 from app.core.config import settings
+from app.schemas.schema import CreateUserRequest, LoginUserRequest, TokenResponse, UserResponse, RefreshRequest
 
 app = FastAPI()
 
@@ -67,34 +67,6 @@ def get_current_user(
     
     return user
 
-class CreateUserRequest(BaseModel):
-    name: str
-    password: str
-
-    model_config = ConfigDict(from_attributes=True)
-
-class LoginUserRequest(BaseModel):
-    name: str
-    password: str
-
-    model_config = ConfigDict(from_attributes=True)
-
-class RefreshRequest(BaseModel):
-    refresh_token: str
-
-class TokenResponse(BaseModel):
-    access_token: str
-    refresh_token: str
-
-    model_config = ConfigDict(from_attributes=True)
-
-class UserResponse(BaseModel):
-    id: int
-    name: str
-    created_at: datetime
-    updated_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
 
 @app.get("/api/me", response_model=UserResponse)
 def hello(current_user: User = Depends(get_current_user)) -> UserResponse:
