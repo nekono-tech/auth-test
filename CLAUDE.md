@@ -27,8 +27,8 @@ alembic downgrade -1        # 1 つ戻す
 ドメイン分割型(`auth` / `users`)+ DB レイヤー分離の構成。リクエストは各ドメインの `router.py` に入り、`Depends(get_session)` で DB セッション、`Depends(get_current_user)` で認証済みユーザーを注入する。
 
 - `app/main.py` — `FastAPI()` インスタンスと `include_router` のみ。ロジックは持たない。
-- `app/auth/` — 認証ドメイン。`router.py`(`/login`, `/api/me`, `/api/token/refresh`)、`service.py`(`_create_token`, `refresh_token_verify`)、`dependencies.py`(`oauth2_scheme`, `get_current_user`)、`security.py`(`password_hash`)、`schemas.py`。
-- `app/users/` — ユーザードメイン。`router.py`(`/users` create/list)、`schemas.py`。`password_hash` は `app.auth.security` から import する(ドメイン間 import)。
+- `app/auth/` — 認証ドメイン。`router.py`(`router = APIRouter(prefix="/auth")`。`/signup`, `/login`, `/me`, `/token/refresh`)、`service.py`(`_create_token`, `refresh_token_verify`)、`dependencies.py`(`oauth2_scheme`, `get_current_user`)、`security.py`(`password_hash`)、`schemas.py`(`SignupUserRequest`, `LoginUserRequest`, `RefreshRequest`, `TokenResponse`)。ユーザー登録(signup)は「資格情報(パスワード)を発行する認証操作」として users ではなく auth に置く。そのため signup は `password_hash` でハッシュ化し、`app.models.User` へ直接 add/commit する。
+- `app/users/` — ユーザードメイン。`router.py`(`/users` list のみ)、`schemas.py`(`UserResponse`)。参照系に徹し、auth への越境 import は持たない。
 - `app/config.py` — `pydantic-settings` の `Settings`。`.env` から `secret`(JWT 署名鍵)と `algorithm` を読み込み、`settings` シングルトンとして公開。鍵へのアクセスはこれ経由のみ。
 - `app/db/` — DB レイヤー。`base_class.py`(**`Base` の正本** = `DeclarativeBase` と `TimestampMixin`)、`session.py`(engine / `SessionLocal` / `get_session` / `DATABASE_URL`)、`base.py`(Alembic 用に `Base` + 全モデルを import する集約ファイル)。
 - `app/models.py` — SQLAlchemy ORM モデル。`User` テーブル名は `auth_user`、`name` は unique。`Base` は `app.db.base_class` から継承する。
@@ -39,10 +39,12 @@ alembic downgrade -1        # 1 つ戻す
 
 ### 認証フロー
 
-1. `POST /users` — パスワードを `pwdlib`(argon2)でハッシュ化して保存。
-2. `POST /login` — `name` で検索しパスワード照合。成功で access(5分)+ refresh(10分)トークンを返す。
-3. `GET /api/me` — `OAuth2PasswordBearer` で Authorization ヘッダーから access トークンを取り、`get_current_user` が検証。
-4. `POST /api/token/refresh` — refresh トークンを検証し、両トークンを再発行。
+全ルートは `app/main.py` で `prefix="/api"` の下にマウントされ、auth ルーターはさらに `prefix="/auth"` を持つ(下記の `/api/auth/...`)。users ルーターは追加 prefix なし(`/api/users`)。
+
+1. `POST /api/auth/signup` — パスワードを `pwdlib`(argon2)でハッシュ化して保存。
+2. `POST /api/auth/login` — `name` で検索しパスワード照合。成功で access(5分)+ refresh(10分)トークンを返す。
+3. `GET /api/auth/me` — `OAuth2PasswordBearer` で Authorization ヘッダーから access トークンを取り、`get_current_user` が検証。
+4. `POST /api/auth/token/refresh` — refresh トークンを検証し、両トークンを再発行。
 
 トークン有効期限は `app/auth/router.py` 内に `timedelta` でハードコードされている(login と refresh の 2 箇所)。
 
