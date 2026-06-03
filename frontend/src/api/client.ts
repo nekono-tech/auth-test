@@ -11,6 +11,15 @@ import axios from "axios";
 //   updated_at: Date;
 // }
 
+/**
+ * Fast API のバリデーションエラー型定義
+ */
+export interface ValidationError {
+  loc: (string | number)[];
+  msg: string;
+  type: string;
+}
+
 // /**
 //  * Todo 作成時のリクエスト
 //  */

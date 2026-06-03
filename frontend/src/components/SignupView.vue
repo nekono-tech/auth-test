@@ -1,6 +1,9 @@
 <script setup lang="ts">
-import { api } from "@/api/client";
+import { api, type ValidationError } from "@/api/client";
+import axios from "axios";
 import { ref } from "vue";
+
+const errors = ref<{ loc: string | number; msg: string }[]>([]);
 
 const form = ref({
   name: "",
@@ -12,7 +15,14 @@ async function handleSubmit() {
     const res = await api.post("/api/auth/signup", form.value);
     console.log(res);
   } catch (err) {
-    console.error(err);
+    if (axios.isAxiosError(err) && err.response?.status === 422) {
+      // 422 エラーの場合
+      errors.value = err.response.data.detail.map((res: ValidationError) => ({
+        loc: res.loc[res.loc.length - 1],
+        msg: res.msg,
+      }));
+      console.log(errors.value);
+    }
   }
 }
 </script>
