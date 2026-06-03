@@ -2,29 +2,11 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.auth.security import password_hash
 from app.db.session import get_session
 from app.models import User
-from app.users.schemas import CreateUserRequest, UserResponse
+from app.users.schemas import UserResponse
 
 router = APIRouter()
-
-
-@router.post("/users", response_model=UserResponse)
-def create_user(body: CreateUserRequest, session: Session = Depends(get_session)) -> UserResponse:
-    # パスワードはハッシュ化する
-    password = body.password
-    hash = password_hash.hash(password)
-    user = User(
-        # exclude で指定した内容だけ除外できる
-        **body.model_dump(exclude={"password"}),
-        password=hash,
-    )
-
-    session.add(user)
-    session.commit()
-    session.refresh(user)
-    return user
 
 
 @router.get("/users", response_model=list[UserResponse])

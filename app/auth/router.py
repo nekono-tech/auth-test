@@ -5,14 +5,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
-from app.auth.schemas import LoginUserRequest, RefreshRequest, TokenResponse
+from app.auth.schemas import LoginUserRequest, RefreshRequest, SignupUserRequest, TokenResponse
 from app.auth.security import password_hash
 from app.auth.service import _create_token, refresh_token_verify
 from app.db.session import get_session
 from app.models import User
 from app.users.schemas import UserResponse
 
-router = APIRouter()
+router = APIRouter(prefix="/auth")
 
 
 @router.get("/me", response_model=UserResponse)
@@ -39,6 +39,23 @@ def token_refresh(body: RefreshRequest, session: Session = Depends(get_session))
     new_refresh_token = _create_token(user.id, "refresh", timedelta(minutes=10))
 
     return {"access_token": new_access_token, "refresh_token": new_refresh_token}
+
+
+@router.post("/signup", response_model=UserResponse)
+def signup(body: SignupUserRequest, session: Session = Depends(get_session)) -> UserResponse:
+    # パスワードはハッシュ化する
+    password = body.password
+    hash = password_hash.hash(password)
+    user = User(
+        # exclude で指定した内容だけ除外できる
+        **body.model_dump(exclude={"password"}),
+        password=hash,
+    )
+
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
 
 
 @router.post("/login")

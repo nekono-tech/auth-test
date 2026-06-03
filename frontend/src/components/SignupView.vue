@@ -9,7 +9,7 @@ const form = ref({
 
 async function handleSubmit() {
   try {
-    const res = await api.post("/api/users", form.value);
+    const res = await api.post("/api/auth/signup", form.value);
     console.log(res);
   } catch (err) {
     console.error(err);
