@@ -11,9 +11,7 @@ router = APIRouter()
 
 
 @router.post("/users", response_model=UserResponse)
-def create_user(
-    body: CreateUserRequest, session: Session = Depends(get_session)
-) -> UserResponse:
+def create_user(body: CreateUserRequest, session: Session = Depends(get_session)) -> UserResponse:
     # パスワードはハッシュ化する
     password = body.password
     hash = password_hash.hash(password)
